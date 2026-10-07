@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>冷蔵庫ストック（家族用）</title>
+<style>
+:root{--bg:#eef3f1;--card:#fff;--ink:#1d2b29;--sub:#62736f;--line:#d5dfdb;--main:#1f7a6d;--main-ink:#fff;--warn:#c77a00;--warn-bg:#fff2d6;--bad:#b3261e;--bad-bg:#fde4e1;--ok-bg:#dff1ec}
+@media (prefers-color-scheme:dark){:root{--bg:#121a19;--card:#1b2625;--ink:#e6efed;--sub:#93a6a2;--line:#2e3d3b;--main:#4fc3b0;--main-ink:#08201c;--warn:#f0b24a;--warn-bg:#3b2d10;--bad:#ff8a80;--bad-bg:#40201d;--ok-bg:#183530}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.bar .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-weight:600}
+.alert.bad{background:var(--bad-bg);color:var(--bad)}
+.alert ul{margin:6px 0 0;padding-left:1.2em;font-weight:400}
+form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--sub);gap:3px}
+.full{grid-column:1/-1}
+input,select,button{font:inherit;color:var(--ink)}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0;width:100%}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px}
+button.primary{background:var(--main);color:var(--main-ink);border-color:var(--main);font-weight:700;padding:12px}
+:focus-visible{outline:3px solid var(--main);outline-offset:2px}
+.tabs{display:flex;gap:8px;margin-bottom:10px}
+.tabs button{flex:1}
+.tabs button[aria-pressed=true]{background:var(--main);color:var(--main-ink);border-color:var(--main)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px}
+.chips button{white-space:nowrap;border-radius:99px;padding:5px 12px;font-size:.85rem}
+.chips button[aria-pressed=true]{background:var(--ok-bg);border-color:var(--main);font-weight:700}
+.item{background:var(--card);border:1px solid var(--line);border-left-width:6px;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.item.soon{border-left-color:var(--warn)}.item.over{border-left-color:var(--bad)}.item.fine{border-left-color:var(--main)}.item.done{border-left-color:var(--line);opacity:.8}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.name{font-weight:700}
+.sub{font-size:.8rem;color:var(--sub)}
+.badge{font-size:.8rem;font-weight:700;border-radius:99px;padding:2px 10px;white-space:nowrap}
+.fine .badge{background:var(--ok-bg);color:var(--main)}.soon .badge{background:var(--warn-bg);color:var(--warn)}.over .badge{background:var(--bad-bg);color:var(--bad)}.done .badge{background:var(--bg);color:var(--sub)}
+.acts{display:flex;gap:8px;margin-top:8px}
+.acts button{font-size:.85rem;padding:5px 10px}
+.empty{text-align:center;color:var(--sub);padding:28px 0}
+.center{text-align:center;padding:48px 8px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>冷蔵庫ストック</h1>
+<section id="boot" class="card center">読み込み中…</section>
+<script>
+setTimeout(function(){
+  if(window.__ok) return;
+  document.getElementById("boot").innerHTML = location.protocol==="file:"
+    ? "ファイルを直接開いているため動きません。<br>GitHub Pagesの公開URL（https://〜）から開いてください。"
+    : "Firebaseの読み込みに失敗しました。<br>ネットワーク接続を確認し、ページを再読み込みしてください。";
+},4000);
+</script>
+
+<!-- ログイン前 -->
+<section id="login" class="card center" hidden>
+  <p>家族だけが使えるアプリです。<br>許可されたGoogleアカウントでログインしてください。</p>
+  <button class="primary" id="btn-login">Googleでログイン</button>
+  <p class="sub" id="login-msg"></p>
+</section>
+
+<!-- 許可されていないアカウント -->
+<section id="denied" class="card center" hidden>
+  <p><b>このアカウントは許可されていません。</b></p>
+  <p class="sub" id="denied-mail"></p>
+  <button id="btn-switch">別のアカウントでログイン</button>
+</section>
+
+<!-- ログイン後 -->
+<section id="app" hidden>
+  <div class="bar"><span class="sub" id="who"></span><button id="btn-logout">ログアウト</button></div>
+  <div id="alert"></div>
+
+  <form class="card" id="f" autocomplete="off">
+    <label>カテゴリ<select id="cat" required></select></label>
+    <label>小分類<select id="sub"></select></label>
+    <label class="full">食品名<input id="name" required maxlength="40" placeholder="例：国産鶏むね肉"></label>
+    <label>数量<input id="qty" maxlength="20" placeholder="例：2パック"></label>
+    <label>保管場所<select id="place"><option>冷蔵</option><option>冷凍</option><option>野菜室</option><option>常温</option></select></label>
+    <label>買った日<input type="date" id="bought" required></label>
+    <label>賞味・消費期限<input type="date" id="exp" required></label>
+    <button class="primary full" type="submit">追加する</button>
+  </form>
+
+  <div class="tabs">
+    <button id="t-stock" aria-pressed="true">在庫</button>
+    <button id="t-used" aria-pressed="false">使用済み</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="list"></div>
+</section>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ▼▼ Firebaseコンソールで表示される設定値に置き換えてください ▼▼ */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
+};
+/* ▲▲ ここまで（この値は公開されても問題ありません。守っているのはFirestoreのルールです） ▲▲ */
+
+const $=id=>document.getElementById(id);
+window.__ok=true;
+{
+  let msg="";
+  if(location.protocol==="file:") msg="ファイルを直接開いているため動きません。<br>GitHub Pagesの公開URL（https://〜）から開いてください。";
+  else if(/YOUR_/.test(firebaseConfig.apiKey+firebaseConfig.projectId)) msg="firebaseConfig がまだ設定されていません。<br>index.html の設定値をFirebaseの値に置き換えてください。";
+  if(msg){$("boot").innerHTML=msg;throw new Error("setup: "+msg)}
+}
+const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
+const col=collection(db,"items");
+
+const TAX={
+ "肉":["鶏肉","豚肉","牛肉","ひき肉","加工肉"],
+ "魚介":["生魚","切り身","刺身","干物","貝・えび"],
+ "野菜":["葉物","根菜","きのこ","果菜","カット野菜"],
+ "果物":["柑橘","りんご・梨","ベリー","その他"],
+ "卵・乳製品":["卵","牛乳","ヨーグルト","チーズ","バター"],
+ "大豆・加工品":["豆腐","納豆","油揚げ","練り物"],
+ "主食":["パン","麺","ご飯・餅"],
+ "調味料":["ソース・たれ","みそ・しょうゆ","ドレッシング","その他"],
+ "飲み物":["お茶・水","ジュース","アルコール"],
+ "惣菜・冷凍":["惣菜","冷凍食品","作り置き"],
+ "その他":["その他"]
+};
+let items=[], view="stock", filter="すべて", unsub=null;
+const SOON=3;
+const pad=n=>String(n).padStart(2,"0");
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+const days=s=>Math.round((new Date(s+"T00:00")-new Date(today()+"T00:00"))/864e5);
+const md=s=>{const [,m,d]=s.split("-");return `${+m}/${+d}`};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const show=name=>{$("boot").hidden=true;for(const id of ["login","denied","app"])$(id).hidden=id!==name};
+
+/* ---------- ログイン ---------- */
+const provider=new GoogleAuthProvider();
+$("btn-login").onclick=async()=>{
+  $("login-msg").textContent="";
+  try{await signInWithPopup(auth,provider)}
+  catch(e){
+    if(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment") signInWithRedirect(auth,provider);
+    else if(e.code!=="auth/popup-closed-by-user") $("login-msg").textContent="ログインできませんでした（"+e.code+"）";
+  }
+};
+const out=()=>signOut(auth);
+$("btn-logout").onclick=out; $("btn-switch").onclick=out;
+
+onAuthStateChanged(auth,user=>{
+  if(unsub){unsub();unsub=null}
+  items=[];
+  if(!user){show("login");return}
+  $("who").textContent=user.email;
+  $("denied-mail").textContent=user.email;
+  show("app");
+  // 許可されていないアカウントはFirestoreのルールで拒否され、errorに入る
+  unsub=onSnapshot(col,snap=>{
+    items=snap.docs.map(d=>({id:d.id,...d.data()}));
+    render();
+  },err=>{
+    if(err.code==="permission-denied") show("denied");
+    else{show("login");$("login-msg").textContent="読み込みに失敗しました（"+err.code+"）"}
+  });
+});
+
+/* ---------- フォーム ---------- */
+function fillSub(){$("sub").innerHTML=TAX[$("cat").value].map(c=>`<option>${c}</option>`).join("")}
+$("cat").innerHTML=Object.keys(TAX).map(c=>`<option>${c}</option>`).join("");
+fillSub(); $("bought").value=today();
+$("cat").onchange=fillSub;
+
+$("f").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    await addDoc(col,{cat:$("cat").value,sub:$("sub").value,name:$("name").value.trim(),qty:$("qty").value.trim(),place:$("place").value,bought:$("bought").value,exp:$("exp").value,used:null,by:auth.currentUser.email,at:serverTimestamp()});
+    $("name").value="";$("qty").value="";$("exp").value="";
+    view="stock";render();
+  }catch(err){alert("追加できませんでした："+err.code)}
+};
+
+/* ---------- 表示 ---------- */
+function status(it){
+  if(it.used) return {k:"done",t:`${md(it.used)}に使用`};
+  const d=days(it.exp);
+  if(d<0) return {k:"over",t:`${-d}日超過`};
+  if(d===0) return {k:"soon",t:"今日まで"};
+  if(d<=SOON) return {k:"soon",t:`あと${d}日`};
+  return {k:"fine",t:`あと${d}日`};
+}
+function render(){
+  $("t-stock").setAttribute("aria-pressed",view==="stock");
+  $("t-used").setAttribute("aria-pressed",view==="used");
+  const stock=items.filter(i=>!i.used);
+  const over=stock.filter(i=>days(i.exp)<0), soon=stock.filter(i=>{const d=days(i.exp);return d>=0&&d<=SOON});
+  let a="";
+  if(over.length) a+=`<div class="alert bad">期限が切れています（${over.length}件）<ul>${over.map(i=>`<li>${esc(i.name)}（${md(i.exp)}）</li>`).join("")}</ul></div>`;
+  if(soon.length) a+=`<div class="alert">${SOON}日以内に期限が来ます（${soon.length}件）<ul>${soon.map(i=>`<li>${esc(i.name)}（${md(i.exp)}）</li>`).join("")}</ul></div>`;
+  $("alert").innerHTML=a;
+
+  const pool=items.filter(i=>view==="used"?i.used:!i.used);
+  const cats=["すべて",...Object.keys(TAX).filter(c=>pool.some(i=>i.cat===c))];
+  if(!cats.includes(filter)) filter="すべて";
+  $("chips").innerHTML=cats.map(c=>`<button data-c="${c}" aria-pressed="${c===filter}">${c}</button>`).join("");
+
+  const shown=pool.filter(i=>filter==="すべて"||i.cat===filter)
+    .sort((a,b)=>view==="used"?b.used.localeCompare(a.used):a.exp.localeCompare(b.exp));
+  if(!shown.length){$("list").innerHTML=`<div class="empty">${view==="used"?"使用済みの食品はまだありません":"在庫がありません。上のフォームから追加してください"}</div>`;return}
+  $("list").innerHTML=shown.map(i=>{
+    const s=status(i);
+    return `<div class="item ${s.k}"><div class="row"><div><div class="name">${esc(i.name)}${i.qty?` <span class="sub">${esc(i.qty)}</span>`:""}</div>
+    <div class="sub">${esc(i.cat)} ＞ ${esc(i.sub)}・${esc(i.place)}</div>
+    <div class="sub">買った日 ${md(i.bought)}／期限 ${md(i.exp)}${i.used?`／使った日 ${md(i.used)}`:""}</div>
+    <div class="sub">登録：${esc(i.by||"")}</div></div>
+    <span class="badge">${s.t}</span></div>
+    <div class="acts">${i.used?`<button data-a="undo" data-id="${esc(i.id)}">在庫に戻す</button>`:`<button data-a="use" data-id="${esc(i.id)}">使った</button>`}
+    <button data-a="del" data-id="${esc(i.id)}">削除</button></div></div>`;
+  }).join("");
+}
+
+$("list").onclick=async e=>{
+  const b=e.target.closest("button[data-a]"); if(!b) return;
+  const it=items.find(i=>i.id===b.dataset.id); if(!it) return;
+  const ref=doc(db,"items",it.id);
+  try{
+    if(b.dataset.a==="use") await updateDoc(ref,{used:today()});
+    else if(b.dataset.a==="undo") await updateDoc(ref,{used:null});
+    else if(b.dataset.a==="del"&&confirm(`「${it.name}」を削除しますか？`)) await deleteDoc(ref);
+  }catch(err){alert("操作できませんでした："+err.code)}
+};
+$("chips").onclick=e=>{const b=e.target.closest("button[data-c]");if(b){filter=b.dataset.c;render()}};
+$("t-stock").onclick=()=>{view="stock";render()};
+$("t-used").onclick=()=>{view="used";render()};
+</script>
+</body>
+</html>
